@@ -40,7 +40,7 @@ Ensemble predictions from five distinct modeling architectures (Linear Regressio
 
 ## Project Structure & Reading Guide
 The compiled PDF exports of the Jupyter Notebooks used throughout this analysis are organized chronologically below:
-
+```text
 ├── Project_Report.pdf                         # Final Written Capstone Document
 └── notebooks/                                 # Organized Project Phases (PDF Exports)
     ├── 01_Data_Preparation/
@@ -53,7 +53,7 @@ The compiled PDF exports of the Jupyter Notebooks used throughout this analysis 
         ├── 05_standard_mi_pipeline.pdf        # Running the 5 ML baseline architectures under Standard MI
         ├── 06_matched_mmi_pipeline.pdf        # Executing 1:1 nearest-neighbor matching and model execution
         └── 07_dual_bootstrap_inference.pdf    # Running the 100-replicate dual-resampling uncertainty loop
-
+```
 ---
 
 ## Major Research Findings
