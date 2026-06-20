@@ -38,24 +38,6 @@ Ensemble predictions from five distinct modeling architectures (Linear Regressio
 
 ---
 
-## Project Structure & Reading Guide
-The compiled PDF exports of the Jupyter Notebooks used throughout this analysis are organized chronologically below:
-```text
-├── Project_Report.pdf                         # Final Written Capstone Document
-└── notebooks/                                 # Organized Project Phases (PDF Exports)
-    ├── 01_Data_Preparation/
-    │   ├── 01_aou_preprocessing.pdf           # Filtering valid wear days and removing outliers
-    │   ├── 02_nhanes_harmonization.pdf        # Survey weight adjustments and variable alignment
-    ├── 02_Exploratory_Analysis/
-    │   ├── 03_distributional_overlap.pdf      # Visualizing step/calorie distributions & matching balance
-    │   ├── 04_demographic_audits.pdf          # Baseline volunteer vs. representative baseline checks
-    └── 03_Statistical_Modeling/
-        ├── 05_standard_mi_pipeline.pdf        # Running the 5 ML baseline architectures under Standard MI
-        ├── 06_matched_mmi_pipeline.pdf        # Executing 1:1 nearest-neighbor matching and model execution
-        └── 07_dual_bootstrap_inference.pdf    # Running the 100-replicate dual-resampling uncertainty loop
-```
----
-
 ## Major Research Findings
 * **National Benchmarks:** The MMI framework tightened the machine learning consensus to precise national ranges of 8,236 to 8,263 daily steps and 1,170 to 1,173 activity calories after adjusting for the healthy-volunteer bias.
 * **Reverse Selection Bias:** A striking "reverse bias" was discovered in the 65+ demographic. Corrected national averages exceeded the raw volunteer benchmarks, revealing that digital health volunteer cohorts systematically underrepresent active, community-dwelling seniors.
@@ -66,5 +48,15 @@ The compiled PDF exports of the Jupyter Notebooks used throughout this analysis 
 
 ## Software & Environments
 * **Environment:** R (v4.1) via Jupyter Notebooks on the All of Us Researcher Workbench.
-* **Core Libraries:** tidyverse & nhanesA (Data Orchestration), FNN (Nearest-Neighbor Matching), xgboost, randomForest, mgcv, and nnet (Predictive Architecture Construction).  
+* **Core Libraries:** tidyverse & nhanesA (Data Orchestration), FNN (Nearest-Neighbor Matching), xgboost, randomForest, mgcv, and nnet (Predictive Architecture Construction).
+
+---
+
+## Project Status & Roadmap
+This repository currently hosts the comprehensive research paper detailing the project's methodology and findings.
+
+**Next Steps:**
+* Refactor and clean the original R data analysis pipeline (currently in development branch)
+* Translate the core statistical analysis and data visualizations into Python
+* Upload the finalized Python notebooks to the main branch
 
