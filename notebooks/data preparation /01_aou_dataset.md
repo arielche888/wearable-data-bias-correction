@@ -1,4 +1,4 @@
-# Notebook 1: Dataset Export and Cleaning
+# Notebook 1: Dataset Export and Cleaning for the AoU Dataset
 
 Here is the code I used to set up the Google Storage functions:
 
@@ -177,13 +177,161 @@ daily_data_cleaned <- bq_project_query(project, sql_query) %>%
 ## Cleaning the data
 
 ### Fitbit Data
+```r
+# Apply physical activity caps & best practices
+daily_data_cleaned_v2 <- daily_data_cleaned %>%
+  filter(
+    total_active_minutes > 0,
+    (sedentary_minutes + total_active_minutes) <= 1440,
+    total_active_minutes < 960  # 16-hour active cap
+  )
+
+# Compute Fitbit Averages per participant
+average_fitbit <- daily_data_cleaned_v2 %>%
+  group_by(person_id) %>%
+  mutate(days_count = n()) %>%
+  filter(days_count >= 7) %>%  # Keep people with at least 7 valid days
+  filter(date >= "2021-08-01" & date <= "2023-08-31") %>%
+  filter(sum_steps > 0 & activity_calories > 0) %>%
+  filter(!is.na(device_version)) %>%
+  summarize(
+    fitbit_start_date = min(date, na.rm = TRUE),
+    avg_activity_calories = mean(activity_calories, na.rm = TRUE),
+    avg_steps = mean(sum_steps, na.rm = TRUE),
+    avg_sedentary_minutes = mean(sedentary_minutes, na.rm = TRUE),
+    avg_active_minutes = mean(total_active_minutes, na.rm = TRUE)
+  )
+
+# Outlier removal
+average_fitbit2 <- average_fitbit %>% 
+  filter(
+    avg_activity_calories >= 50 & avg_activity_calories <= 3000,
+    avg_steps >= 1000 & avg_steps <= 50000,
+    avg_sedentary_minutes <= 1140,
+    avg_active_minutes > 0
+  )
+```
 
 ### Survey Data
+```r
+library(lubridate)
+library(tidyr)
+
+# Filter survey date ranges
+survey_df <- dataset_survey %>%
+  mutate(survey_date = as.Date(survey_datetime)) %>%
+  filter(survey_date >= "2021-08-01" & survey_date <= "2023-08-31")
+
+# Pivot from long to wide format
+survey_wide <- survey_df %>%
+  group_by(person_id, question) %>%
+  slice_max(order_by = survey_date, n = 1, with_ties = FALSE) %>% # Keep latest response
+  ungroup() %>%
+  select(-survey_datetime) %>%
+  pivot_wider(
+    names_from = question,
+    values_from = answer
+  )
+
+# Clean up long string survey column names
+survey_wide <- survey_wide %>%
+  rename(
+    alcohol = `Alcohol: Alcohol Participant`,
+    education_level = `Education Level: Highest Grade`,
+    marital_status = `Marital Status: Current Marital Status`,
+    race = `Race: What Race Ethnicity`,
+    smoking = `Smoking: 100 Cigs Lifetime`,
+    birthplace = `The Basics: Birthplace`
+  )
+```
 
 ### Person Data
+```r
+dataset_person = dataset_person %>%
+  mutate(birthdate = as.Date(date_of_birth)) %>%
+  select(-date_of_birth) %>%
+  relocate(birthdate, .before = sex_at_birth)
+```
 
 ### Measurement Data
+```r
+# Process clinical measurements
+measurement_df <- dataset_measurement %>%
+  mutate(measurement_date = as.Date(measurement_datetime)) %>%
+  select(-measurement_datetime) %>%
+  filter(measurement_date >= "2021-08-01" & measurement_date <= "2023-08-31")
 
-## Creating One AoU Dataset
+# Aggregate measurements per person and pivot wide
+measurement_wide <- measurement_df %>%
+  group_by(person_id, standard_concept_name) %>%
+  summarize(
+    avg_value = mean(value_as_number, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = standard_concept_name,
+    values_from = avg_value
+  )
 
-## Exporting and cleaning NHANES Dataset
+# Clean clinical column headers
+measurement_wide <- measurement_wide %>%
+  rename(
+    height = `Body height`,
+    BMI = `Body mass index (BMI) [Ratio]`,
+    weight = `Body weight`,
+    total_cholesterol = `Cholesterol [Mass/volume] in Serum or Plasma`,
+    diastolic_bp = `Diastolic blood pressure`,
+    HbA1c = `Hemoglobin A1c/Hemoglobin.total in Blood`,
+    systolic_bp = `Systolic blood pressure`,
+    heart_rate = `Heart rate`,
+    cholesterol_hdl = `Cholesterol in HDL [Mass/volume] in Serum or Plasma`
+  )
+```
+
+## AoU Dataset Merge
+```r
+# Left join all domains together
+AoU_combined <- dataset_person %>%
+  left_join(survey_wide, by = "person_id") %>%
+  left_join(measurement_wide, by = "person_id") %>%
+  left_join(average_fitbit2, by = "person_id")
+
+# Aggregate into final analytics dataset (1 row per participant)
+AoU <- AoU_combined %>%
+  group_by(person_id) %>%
+  summarize(
+    birthdate = first(na.omit(birthdate)),
+    sex_at_birth = first(na.omit(sex_at_birth)),
+    survey_date = first(na.omit(survey_date)),
+    alcohol = first(na.omit(alcohol)),
+    education_level = first(na.omit(education_level)),
+    marital_status = first(na.omit(marital_status)),
+    race = first(na.omit(race)),
+    smoking = first(na.omit(smoking)),
+    birthplace = first(na.omit(birthplace)),
+    
+    # Clinical averages
+    height = mean(height, na.rm = TRUE),
+    BMI = mean(BMI, na.rm = TRUE),
+    weight = mean(weight, na.rm = TRUE),
+    total_cholesterol = mean(total_cholesterol, na.rm = TRUE),
+    diastolic_bp = mean(diastolic_bp, na.rm = TRUE),
+    HbA1c = mean(HbA1c, na.rm = TRUE),
+    systolic_bp = mean(systolic_bp, na.rm = TRUE),
+    heart_rate = mean(heart_rate, na.rm = TRUE),
+    cholesterol_hdl = mean(cholesterol_hdl, na.rm = TRUE),
+    
+    # Fitbit variables
+    fitbit_date = first(na.omit(fitbit_start_date)),
+    avg_activity_calories = mean(avg_activity_calories, na.rm = TRUE),
+    avg_steps = mean(avg_steps, na.rm = TRUE),
+    avg_sedentary_minutes = mean(avg_sedentary_minutes, na.rm = TRUE),
+    avg_active_minutes = mean(avg_active_minutes, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  drop_na(avg_steps, avg_activity_calories) # Enforce focus cohort filter
+
+# Save to Google Cloud Bucket
+destination_filename <- "AoU.csv"
+write_dataframe_to_google_storage(AoU, destination_filename)
+```
